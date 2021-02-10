@@ -1,5 +1,6 @@
 package com.json.singlelock.test;
 
+import com.jsonyao.singlelock.SinglelockApplication;
 import com.jsonyao.singlelock.service.OrderService;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -13,7 +14,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 @RunWith(SpringRunner.class)
-@SpringBootTest
+@SpringBootTest(classes = {SinglelockApplication.class})
 public class SinglelockApplicationTests {
 
     @Autowired
@@ -21,7 +22,7 @@ public class SinglelockApplicationTests {
 
     @Test
     public void concurrentOrder() throws InterruptedException {
-        Thread.sleep(60000);
+//        Thread.sleep(60000);
         CountDownLatch cdl = new CountDownLatch(5);
         CyclicBarrier cyclicBarrier = new CyclicBarrier(5);
 
