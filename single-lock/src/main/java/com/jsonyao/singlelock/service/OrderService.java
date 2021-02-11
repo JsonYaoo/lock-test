@@ -69,31 +69,6 @@ public class OrderService {
         return order.getId();
     }
 
-    private Order getOrder(Product product) {
-        Order order = new Order();
-        order.setOrderAmount(product.getPrice().multiply(new BigDecimal(purchaseProductNum)));
-        order.setOrderStatus(1);//待处理
-        order.setReceiverName("xxx");
-        order.setReceiverMobile("13311112222");
-        order.setCreateTime(new Date());
-        order.setCreateUser("xxx");
-        order.setUpdateTime(new Date());
-        order.setUpdateUser("xxx");
-        orderMapper.insertSelective(order);
-
-        OrderItem orderItem = new OrderItem();
-        orderItem.setOrderId(order.getId());
-        orderItem.setProductId(product.getId());
-        orderItem.setPurchasePrice(product.getPrice());
-        orderItem.setPurchaseNum(purchaseProductNum);
-        orderItem.setCreateUser("xxx");
-        orderItem.setCreateTime(new Date());
-        orderItem.setUpdateTime(new Date());
-        orderItem.setUpdateUser("xxx");
-        orderItemMapper.insertSelective(orderItem);
-        return order;
-    }
-
     /**
      * 2. 超卖情况2: 直接使用Spring事务, 利用数据库行锁, sql里增量更新库存
      * => 出现超卖: 库存为-4, 有5个订单
@@ -161,6 +136,36 @@ public class OrderService {
         return order.getId();
     }
 
+    /**
+     * 3. 超卖情况3: 加了Synchronized关键字对整个方法加锁
+     * => 出现超卖: 虽然对方法加了Synchronized关键字, 但事务却没在锁的范围内, 所以会出现第二个线程查询缓存时, 第一个线程还没提交更新的事务, 因此出现了超卖现象
+     * @return
+     * @throws Exception
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public synchronized Integer createOrder04() throws Exception{
+        Product product = null;
+
+        product = productMapper.selectByPrimaryKey(purchaseProductId);
+        if (product==null){
+            throw new Exception("购买商品："+purchaseProductId+"不存在");
+        }
+
+        //商品当前库存
+        Integer currentCount = product.getCount();
+        System.out.println(Thread.currentThread().getName()+"库存数："+currentCount);
+
+        //校验库存
+        if (purchaseProductNum > currentCount){
+            throw new Exception("商品"+purchaseProductId+"仅剩"+currentCount+"件，无法购买");
+        }
+
+        productMapper.updateProductCount(purchaseProductNum,"xxx",new Date(),product.getId());
+
+        Order order = getOrder(product);
+        return order.getId();
+    }
+
 ////    @Transactional(rollbackFor = Exception.class)
 //    public Integer createOrder() throws Exception{
 //        Product product = null;
@@ -215,5 +220,35 @@ public class OrderService {
 //        platformTransactionManager.commit(transaction);
 //        return order.getId();
 //    }
+
+    /**
+     * 根据Product创建订单
+     * @param product
+     * @return
+     */
+    private Order getOrder(Product product) {
+        Order order = new Order();
+        order.setOrderAmount(product.getPrice().multiply(new BigDecimal(purchaseProductNum)));
+        order.setOrderStatus(1);//待处理
+        order.setReceiverName("xxx");
+        order.setReceiverMobile("13311112222");
+        order.setCreateTime(new Date());
+        order.setCreateUser("xxx");
+        order.setUpdateTime(new Date());
+        order.setUpdateUser("xxx");
+        orderMapper.insertSelective(order);
+
+        OrderItem orderItem = new OrderItem();
+        orderItem.setOrderId(order.getId());
+        orderItem.setProductId(product.getId());
+        orderItem.setPurchasePrice(product.getPrice());
+        orderItem.setPurchaseNum(purchaseProductNum);
+        orderItem.setCreateUser("xxx");
+        orderItem.setCreateTime(new Date());
+        orderItem.setUpdateTime(new Date());
+        orderItem.setUpdateUser("xxx");
+        orderItemMapper.insertSelective(orderItem);
+        return order;
+    }
 
 }
