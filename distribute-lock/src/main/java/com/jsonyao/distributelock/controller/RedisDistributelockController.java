@@ -1,5 +1,6 @@
 package com.jsonyao.distributelock.controller;
 
+import com.jsonyao.distributelock.lock.RedisLock;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.connection.RedisStringCommands;
@@ -85,6 +86,29 @@ public class RedisDistributelockController {
                 Boolean result = (Boolean) redisTemplate.execute(redisScript, Arrays.asList(key), value);
                 log.info("释放锁的结果: " + result);
             }
+        }
+
+        log.info("我已经执行完成！");
+        return "我已经执行完成！";
+    }
+
+    /**
+     * Redis分布式锁封装测试
+     * @return
+     * @throws Exception
+     */
+    @RequestMapping("/redisDistributeLock2")
+    public String redisDistributeLock2() throws Exception {
+        log.info("我进入了方法！");
+
+        // 测试Redis锁封装
+        try (RedisLock redisLock = new RedisLock("redisKey", 30)){
+            if(redisLock.getLock()){
+                log.info("我进入了锁！");
+                Thread.sleep(20000);
+            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
 
         log.info("我已经执行完成！");
