@@ -209,6 +209,49 @@ public class OrderService {
         return order.getId();
     }
 
+    /**
+     * 6. 解决超卖情况3: 加Synchronized关键字对扣减库存代码块进行加锁, 同时手动对事务加锁
+     * => 解决了超卖: 库存正常, 订单正常, 但需要避免嵌套事务, 可以使用
+     * @return
+     * @throws Exception
+     */
+    public Integer createOrder06() throws Exception{
+        Product product = null;
+        synchronized (this) {
+            // 手工开启事务
+            TransactionStatus transactionStatus = platformTransactionManager.getTransaction(transactionDefinition);
+            product = productMapper.selectByPrimaryKey(purchaseProductId);
+            if (product==null){
+                // 手工回滚事务
+                platformTransactionManager.rollback(transactionStatus);
+                throw new Exception("购买商品："+purchaseProductId+"不存在");
+            }
+
+            //商品当前库存
+            Integer currentCount = product.getCount();
+            System.out.println(Thread.currentThread().getName()+"库存数："+currentCount);
+
+            //校验库存
+            if (purchaseProductNum > currentCount){
+                // 手工回滚事务
+                platformTransactionManager.rollback(transactionStatus);
+                throw new Exception("商品"+purchaseProductId+"仅剩"+currentCount+"件，无法购买");
+            }
+
+            productMapper.updateProductCount(purchaseProductNum,"xxx",new Date(),product.getId());
+            // 手工提交事务
+            platformTransactionManager.commit(transactionStatus);
+        }
+
+        // 手工开启事务: 避免事务嵌套
+        TransactionStatus transactionStatus = platformTransactionManager.getTransaction(transactionDefinition);
+        Order order = getOrder(product);
+        // 手工提交事务: 避免事务嵌套
+        platformTransactionManager.commit(transactionStatus);
+
+        return order.getId();
+    }
+
 ////    @Transactional(rollbackFor = Exception.class)
 //    public Integer createOrder() throws Exception{
 //        Product product = null;

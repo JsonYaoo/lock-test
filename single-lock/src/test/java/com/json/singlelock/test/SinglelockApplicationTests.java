@@ -32,7 +32,7 @@ public class SinglelockApplicationTests {
                 try {
                     // 等待所有线程初始化完成, 然后一起执行
                     cyclicBarrier.await();
-                    Integer orderId = orderService.createOrder05();
+                    Integer orderId = orderService.createOrder06();
                     System.out.println("订单id："+orderId);
                 } catch (Exception e) {
                     e.printStackTrace();
