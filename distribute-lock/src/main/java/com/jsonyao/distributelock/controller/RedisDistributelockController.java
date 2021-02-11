@@ -56,7 +56,7 @@ public class RedisDistributelockController {
             // 设置Key字节数组
             byte[] keyBytes = redisTemplate.getKeySerializer().serialize(key);
             // 设置Value字节数组
-            byte[] valueBytes = redisTemplate.getStringSerializer().serialize(value);
+            byte[] valueBytes = redisTemplate.getValueSerializer().serialize(value);
             // 设置过期时间
             Expiration expiration = Expiration.seconds(30);
             // 设置NX
@@ -67,7 +67,7 @@ public class RedisDistributelockController {
         };
 
         // 获取Redis分布式锁
-        boolean lock = (boolean) redisTemplate.execute(redisCallback);
+        Boolean lock = (Boolean) redisTemplate.execute(redisCallback);
         if(lock){
             log.info("我进入了锁！");
             try {
@@ -82,7 +82,8 @@ public class RedisDistributelockController {
                                 "    return 0\n" +
                                 "end";
                 RedisScript<Boolean> redisScript = RedisScript.of(script, Boolean.class);
-                redisTemplate.execute(redisScript, Arrays.asList(key), value);
+                Boolean result = (Boolean) redisTemplate.execute(redisScript, Arrays.asList(key), value);
+                log.info("释放锁的结果: " + result);
             }
         }
 
