@@ -7,7 +7,11 @@ import com.jsonyao.singlelock.model.Order;
 import com.jsonyao.singlelock.model.OrderItem;
 import com.jsonyao.singlelock.model.Product;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
@@ -24,14 +28,15 @@ public class OrderService {
     private OrderItemMapper orderItemMapper;
     @Resource
     private ProductMapper productMapper;
+    @Autowired
+    private PlatformTransactionManager platformTransactionManager;
+    @Autowired
+    private TransactionDefinition transactionDefinition;
+
     //购买商品id
     private int purchaseProductId = 100100;
     //购买商品数量
     private int purchaseProductNum = 1;
-//    @Autowired
-//    private PlatformTransactionManager platformTransactionManager;
-//    @Autowired
-//    private TransactionDefinition transactionDefinition;
 
 //    private Lock lock = new ReentrantLock();
 
@@ -137,7 +142,7 @@ public class OrderService {
     }
 
     /**
-     * 3. 超卖情况3: 加了Synchronized关键字对整个方法加锁
+     * 4. 超卖情况3: 加了Synchronized关键字对整个方法加锁
      * => 出现超卖: 虽然对方法加了Synchronized关键字, 但事务却没在锁的范围内, 所以会出现第二个线程查询缓存时, 第一个线程还没提交更新的事务, 因此出现了超卖现象
      * @return
      * @throws Exception
@@ -163,6 +168,44 @@ public class OrderService {
         productMapper.updateProductCount(purchaseProductNum,"xxx",new Date(),product.getId());
 
         Order order = getOrder(product);
+        return order.getId();
+    }
+
+    /**
+     * 5. 解决超卖情况2: 加了Synchronized关键字对整个方法加锁, 同时手动对事务加锁
+     * => 解决了超卖: 库存正常, 订单正常, 但是synchronized锁住了整个方法, 性能不高, 不建议
+     * @return
+     * @throws Exception
+     */
+    public synchronized Integer createOrder05() throws Exception{
+        // 手工开启事务
+        TransactionStatus transactionStatus = platformTransactionManager.getTransaction(transactionDefinition);
+
+        Product product = null;
+        product = productMapper.selectByPrimaryKey(purchaseProductId);
+        if (product==null){
+            // 手工回滚事务
+            platformTransactionManager.rollback(transactionStatus);
+            throw new Exception("购买商品："+purchaseProductId+"不存在");
+        }
+
+        //商品当前库存
+        Integer currentCount = product.getCount();
+        System.out.println(Thread.currentThread().getName()+"库存数："+currentCount);
+
+        //校验库存
+        if (purchaseProductNum > currentCount){
+            // 手工回滚事务
+            platformTransactionManager.rollback(transactionStatus);
+            throw new Exception("商品"+purchaseProductId+"仅剩"+currentCount+"件，无法购买");
+        }
+
+        productMapper.updateProductCount(purchaseProductNum,"xxx",new Date(),product.getId());
+
+        Order order = getOrder(product);
+
+        // 手工提交事务
+        platformTransactionManager.commit(transactionStatus);
         return order.getId();
     }
 
