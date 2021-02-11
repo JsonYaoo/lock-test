@@ -65,6 +65,11 @@ public class OrderService {
         product.setUpdateUser("xxx");
         productMapper.updateByPrimaryKeySelective(product);
 
+        Order order = getOrder(product);
+        return order.getId();
+    }
+
+    private Order getOrder(Product product) {
         Order order = new Order();
         order.setOrderAmount(product.getPrice().multiply(new BigDecimal(purchaseProductNum)));
         order.setOrderStatus(1);//待处理
@@ -86,7 +91,7 @@ public class OrderService {
         orderItem.setUpdateTime(new Date());
         orderItem.setUpdateUser("xxx");
         orderItemMapper.insertSelective(orderItem);
-        return order.getId();
+        return order;
     }
 
     /**
@@ -115,27 +120,44 @@ public class OrderService {
         // 超卖情况2: 直接使用Spring事务, 利用数据库行锁, sql里增量更新库存
         productMapper.updateProductCount(purchaseProductNum,"xxx",new Date(),product.getId());
 
-        Order order = new Order();
-        order.setOrderAmount(product.getPrice().multiply(new BigDecimal(purchaseProductNum)));
-        order.setOrderStatus(1);//待处理
-        order.setReceiverName("xxx");
-        order.setReceiverMobile("13311112222");
-        order.setCreateTime(new Date());
-        order.setCreateUser("xxx");
-        order.setUpdateTime(new Date());
-        order.setUpdateUser("xxx");
-        orderMapper.insertSelective(order);
+        Order order = getOrder(product);
+        return order.getId();
+    }
 
-        OrderItem orderItem = new OrderItem();
-        orderItem.setOrderId(order.getId());
-        orderItem.setProductId(product.getId());
-        orderItem.setPurchasePrice(product.getPrice());
-        orderItem.setPurchaseNum(purchaseProductNum);
-        orderItem.setCreateUser("xxx");
-        orderItem.setCreateTime(new Date());
-        orderItem.setUpdateTime(new Date());
-        orderItem.setUpdateUser("xxx");
-        orderItemMapper.insertSelective(orderItem);
+    /**
+     * 3. 解决超卖情况1: 利用update行锁, 数据库增量更新后, 重新查询一次库存, 如果为负数则回滚事务
+     * => 解决了超卖: 库存正常, 订单正常, 但是多次连接了数据库, 在高并发情况下是不建议的
+     * @return
+     * @throws Exception
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public Integer createOrder03() throws Exception{
+        Product product = null;
+
+        product = productMapper.selectByPrimaryKey(purchaseProductId);
+        if (product==null){
+            throw new Exception("购买商品："+purchaseProductId+"不存在");
+        }
+
+        //商品当前库存
+        Integer currentCount = product.getCount();
+        System.out.println(Thread.currentThread().getName()+"库存数："+currentCount);
+        //校验库存
+        if (purchaseProductNum > currentCount){
+            throw new Exception("商品"+purchaseProductId+"仅剩"+currentCount+"件，无法购买");
+        }
+
+        // 3. 解决超卖情况1: 利用update行锁, 数据库增量更新后, 重新查询一次库存, 如果为负数则回滚事务
+        productMapper.updateProductCount(purchaseProductNum,"xxx",new Date(),product.getId());
+        product = productMapper.selectByPrimaryKey(purchaseProductId);
+        if (product==null){
+            throw new Exception("购买商品："+purchaseProductId + "不存在");
+        }
+        if(product.getCount() < 0){
+            throw new Exception(purchaseProductId + "库存不能为负");
+        }
+
+        Order order = getOrder(product);
         return order.getId();
     }
 
