@@ -10,7 +10,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Zookeeper实现的分布式锁
+ * Zookeeper实现的分布式锁: 还需要补充锁过期时间的实现
  */
 @Slf4j
 public class ZkLock implements AutoCloseable, Watcher {
