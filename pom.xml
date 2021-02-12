@@ -12,6 +12,7 @@
         <module>single-lock</module>
         <module>distribute-lock</module>
         <module>distribute-zk-lock</module>
+        <module>redisson-lock</module>
     </modules>
 
     <parent>
