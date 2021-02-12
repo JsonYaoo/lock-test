@@ -81,6 +81,10 @@ public class ZkLock implements AutoCloseable, Watcher {
                     }
                 }
 
+//                System.err.println("睡眠20s");
+//                Thread.sleep(20000);
+//                System.err.println("睡眠结束");
+
                 // 监听后该线程进入阻塞状态
                 this.wait();
                 
@@ -140,6 +144,7 @@ public class ZkLock implements AutoCloseable, Watcher {
         if(watchedEvent != null && Event.EventType.NodeDeleted == watchedEvent.getType()){
             // 加synchronized关键字是: notify()的通用写法, 同时为了与wait互斥, 避免监听~wait过程中, 前一个结点就删除了导致notify比wait方法执行早, 从而导致的wait()无限阻塞下去
             synchronized (this) {
+//                System.err.println("进入了process方法");
                 this.notify();
             }
         }
